@@ -1,0 +1,248 @@
+use async_std::io;
+use async_std::task::spawn;
+use clap::Parser;
+use env_logger::{Builder, Env};
+use futures::{prelude::*, select};
+use libp2p::gossipsub::{GossipsubEvent};
+use libp2p::kad::record::store::MemoryStore;
+use libp2p::kad::{
+    record::Key, AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryResult,
+    Quorum, Record,
+};
+use libp2p::mdns::{MdnsEvent};
+use libp2p::{swarm::{SwarmEvent}};
+use std::error::Error;
+
+mod handlers;
+use handlers::*;
+
+mod types;
+
+mod onload;
+use onload::*;
+
+mod watcher;
+use watcher::*;
+
+mod netbase;
+mod netbehaviour;
+use netbehaviour::*;
+mod netclient;
+mod netcommand;
+use netcommand::*;
+mod netexchange;
+
+mod db;
+
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    Builder::from_env(Env::default().default_filter_or("info")).init();
+
+    let args = Args::parse();
+    let (config, dirs, paths) = onload(args);
+    println!("Dir list: {:?}", &dirs);
+    println!("Files list: {:?}", &paths.into_iter().map(|x| x.sub_home()).collect::<Vec<String>>());
+
+    // get network objects
+    let (mut sender, netevent) = netbase::new().await?;
+
+    // set up file watcher
+    let mut watcher = WatcherSender{sender: &sender};
+    spawn(watcher.watch(dirs));
+
+    // TODO create db sync routine for DHT to sled to listen for added peers
+    // perform DHT version check with DB when new peer is found
+    //
+
+    // Listen on all interfaces and whatever port the OS assigns
+    netevent.swarm
+        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .unwrap();
+
+    // Read full lines from stdin
+    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+
+    // Kick it off
+    loop {
+        select! {
+            line = stdin.select_next_some() => handle_input_line(&mut swarm.behaviour_mut().kademlia, line.expect("Stdin not to close")),
+            event = swarm.select_next_some() => match event {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    println!("Listening on {:?}", address);
+                },
+                SwarmEvent::Behaviour(OrgBehaviourEvent::Gossipsub(GossipsubEvent::Message {
+                    propagation_source: peer_id,
+                    message_id: id,
+                    message,
+                })) => println!(
+                    "Got message: {} with id: {} from peer: {:?}",
+                    String::from_utf8_lossy(&message.data),
+                    id,
+                    peer_id
+                ),
+                SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
+                    for (peer_id, multiaddr) in list {
+                        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
+                        println!("Added peer: {:?}", peer_id)
+                    }
+                    // TODO perform version check and sync
+                    trigger_check_version(&mut swarm.behaviour_mut().kademlia)
+                },
+                SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
+                    for (peer_id, _) in list {
+                        swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                        println!("Removed peer: {:?}", peer_id)
+                    }
+                },
+                SwarmEvent::Behaviour(OrgBehaviourEvent::Kademlia(KademliaEvent::OutboundQueryCompleted { result, ..})) => {
+                match result {
+                    QueryResult::GetProviders(Ok(ok)) => {
+                        for peer in ok.providers {
+                            println!(
+                                "Peer {:?} provides key {:?}",
+                                peer,
+                                std::str::from_utf8(ok.key.as_ref()).unwrap()
+                            );
+                        }
+                    }
+                    QueryResult::GetProviders(Err(err)) => {
+                        eprintln!("Failed to get providers: {:?}", err);
+                    }
+                    QueryResult::GetRecord(Ok(ok)) => {
+                        handle_get_request(&ok.records);
+                        for PeerRecord {
+                            record: Record { key, value, .. },
+                            peer: peer
+                        } in ok.records
+                        {
+                            let key_ = std::str::from_utf8(key.as_ref()).unwrap();
+                            let value_ = std::str::from_utf8(&value).unwrap();
+                            if key_ == "version" {
+                                // TODO implement version check
+                                // try and import version from file
+                                // if no file, get latest version number by timestamp and save to disk
+                                // if on file compare timestamp to DHT and take more recent timestamp
+                                // publish version number to DHT as {peer:version}
+                                println!("version: {:?} {:?}",
+                                    value_,
+                                    peer
+                                )
+                            }
+                        }
+                    }
+                    QueryResult::GetRecord(Err(err)) => {
+                        eprintln!("Failed to get record: {:?}", err);
+                    }
+                    QueryResult::PutRecord(Ok(PutRecordOk { key })) => {
+                        println!(
+                            "Successfully put record {:?}",
+                            std::str::from_utf8(key.as_ref()).unwrap()
+                        );
+                    }
+                    QueryResult::PutRecord(Err(err)) => {
+                        eprintln!("Failed to put record: {:?}", err);
+                    }
+                    QueryResult::StartProviding(Ok(AddProviderOk { key })) => {
+                        println!(
+                            "Successfully put provider record {:?}",
+                            std::str::from_utf8(key.as_ref()).unwrap()
+                        );
+                    }
+                    QueryResult::StartProviding(Err(err)) => {
+                        eprintln!("Failed to put provider record: {:?}", err);
+                    }
+                    _ => {}
+                    }
+                }
+                _ => {}
+            },
+            command = commanders.reciever.select_next_some() => match command {
+                // TODO write comand hooks
+                Command::EditFileAdd{path: path} => {
+                    println!("Success with {:?}", path)
+                },
+                _ => {println!("unhandled")}
+            }
+        }
+    }
+}
+
+
+fn handle_input_line(kademlia: &mut Kademlia<MemoryStore>, line: String) {
+    let mut args = line.split(' ');
+
+    match args.next() {
+        Some("GET") => {
+            let key = {
+                match args.next() {
+                    Some(key) => Key::new(&key),
+                    None => {
+                        eprintln!("Expected key");
+                        return;
+                    }
+                }
+            };
+            kademlia.get_record(key, Quorum::One);
+        }
+        Some("GET_PROVIDERS") => {
+            let key = {
+                match args.next() {
+                    Some(key) => Key::new(&key),
+                    None => {
+                        eprintln!("Expected key");
+                        return;
+                    }
+                }
+            };
+            kademlia.get_providers(key);
+        }
+        Some("PUT") => {
+            let key = {
+                match args.next() {
+                    Some(key) => Key::new(&key),
+                    None => {
+                        eprintln!("Expected key");
+                        return;
+                    }
+                }
+            };
+            let value = {
+                match args.next() {
+                    Some(value) => value.as_bytes().to_vec(),
+                    None => {
+                        eprintln!("Expected value");
+                        return;
+                    }
+                }
+            };
+            let record = Record {
+                key,
+                value,
+                publisher: None,
+                expires: None,
+            };
+            kademlia
+                .put_record(record, Quorum::One)
+                .expect("Failed to store record locally.");
+        }
+        Some("PUT_PROVIDER") => {
+            let key = {
+                match args.next() {
+                    Some(key) => Key::new(&key),
+                    None => {
+                        eprintln!("Expected key");
+                        return;
+                    }
+                }
+            };
+
+            kademlia
+                .start_providing(key)
+                .expect("Failed to start providing key");
+        }
+        _ => {
+            eprintln!("expected GET, GET_PROVIDERS, PUT or PUT_PROVIDER");
+        }
+    }
+}
