@@ -47,10 +47,15 @@ pub enum Command {
     EditFileDelete {
         path: PathBuf
     },
-    CliPush,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+pub struct CliCommand {
+    pub Push: String,
 }
 
 pub struct Commanders {
     pub sender: mpsc::Sender<Command>,
     pub reciever: mpsc::Receiver<Command>
 }
+

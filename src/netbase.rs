@@ -11,6 +11,7 @@ use std::time::{Duration};
 use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
+use std::collections::HashMap;
 
 use crate::netbehaviour::*;
 use crate::netcommand::*;
@@ -20,7 +21,7 @@ use crate::db;
 /// Function for creating new network components
 pub async fn new() -> Result<(
     mpsc::Sender<Command>,
-    mpsc::Sender<Command>,
+    mpsc::Sender<CliCommand>,
     mpsc::Sender<Command>,
     NetworkEvent), Box<dyn Error>> {
     // Create a random PeerId
@@ -93,7 +94,10 @@ pub async fn new() -> Result<(
             watcher_receiver,
             cli_receiver,
             command_receiver,
-            database)
+            database,
+            topic,
+            HashMap::new()
+        )
     )
     )
 }

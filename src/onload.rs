@@ -63,15 +63,23 @@ pub struct Args {
     /// Force the state of orgfiles on this machine to be the current state.
     /// Will rewrite local db and then push to DHT
     #[clap(subcommand)]
-    pub choice: CliCommand,
+    pub choice: CliArgs,
 }
 
 #[derive(Debug, Parser)]
-pub enum CliCommand {
+pub enum CliArgs {
     Query {
-        #[clap(long)]
-        push: bool,
+        #[clap(subcommand)]
+        push: PushPath,
     },
     Serve {
     },
+}
+
+#[derive(Debug, Parser)]
+pub enum PushPath {
+    Push {
+        #[clap(long) ]
+        path: Option<String>,
+    }
 }

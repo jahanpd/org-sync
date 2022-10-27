@@ -19,6 +19,7 @@ use std::{
     io::{prelude::*, BufReader},
 };
 
+use bendy;
 
 mod handlers;
 use handlers::*;
@@ -40,6 +41,7 @@ use netcommand::*;
 mod netexchange;
 mod netevent;
 use netevent::NetworkEvent;
+mod netmessages;
 
 mod db;
 
@@ -49,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let args = Args::parse();
     match args.choice {
-        CliCommand::Serve { } => {
+        CliArgs::Serve { } => {
             let (config, dirs, paths) = onload(args);
             println!("Dir list: {:?}", &dirs);
             println!("Files list: {:?}", &paths.into_iter().map(|x| x.sub_home()).collect::<Vec<String>>());
@@ -60,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                  mut command_sender,
                  mut netevent
             ): (mpsc::Sender<Command>,
-                mpsc::Sender<Command>,
+                mpsc::Sender<CliCommand>,
                 mpsc::Sender<Command>,
                 NetworkEvent
             ) = netbase::new().await?;
@@ -84,12 +86,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
             cliinterface.run(listener);
         },
 
-        CliCommand::Query {
+        CliArgs::Query {
             push
         } => {
+            let PushPath::Push {path} = push;
+
+            let comm: CliCommand;
+            if path.is_none() {
+                comm = CliCommand {
+                    Push: "all".into()
+                };
+            } else {
+                comm = CliCommand {
+                    Push: path.unwrap()
+                };
+            }
             let mut stream = TcpStream::connect("127.0.0.1:1324").unwrap();
-            println!("stream input {:?}", "push".as_bytes());
-            stream.write_all(b"push");
+            let bencode = bendy::serde::to_bytes(&comm).unwrap();
+            println!("stream input {:?}", &bencode);
+            stream.write_all(&bencode);
         },
         _ => {}
     }
@@ -99,7 +114,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 #[derive(Clone)]
 pub struct CliInterface {
-    sender: mpsc::Sender<Command>
+    sender: mpsc::Sender<CliCommand>
 }
 impl CliInterface {
     fn run(mut self, listener: TcpListener) {
@@ -117,8 +132,9 @@ impl CliInterface {
             .map(|result| result.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
-        println!("stream input {:?}", b[0]);
-        self.sender.try_send(Command::CliPush)
+        // dbg!("stream input {:?}", &b);
+        let comm: CliCommand = bendy::serde::from_bytes::<CliCommand>(b[0].as_bytes()).unwrap();
+        self.sender.try_send(comm)
         .expect("Command receiver not to be dropped.")
     }
 }
