@@ -103,7 +103,6 @@ impl NetworkEvent {
         match command {
             // TODO write comand hooks
             Command::EditFileAdd{path: path} => {
-                // TODO check hashmap is empty
                 let path_string = path.to_str().unwrap().to_string();
                 if self.watch_pending.get(&path_string).is_none() {
                     println!("{:?} IS NOT registered in hashmap, sending message", path);
@@ -111,6 +110,16 @@ impl NetworkEvent {
                         path: path_string,
                         peerid: self.swarm.local_peer_id().to_bytes()
                     };
+                    // TODO update DHT
+                    let record = Record {
+                        key: Key::new(&path.to_str().unwrap()), // key
+                        value: b"test".to_vec(),
+                        publisher: None,
+                        expires: None,
+                    };
+                    self.swarm.behaviour_mut().kademlia
+                        .put_record(record, Quorum::One)
+                        .expect("Failed to store record locally.");
                     self.swarm
                         .behaviour_mut()
                         .gossipsub
@@ -118,9 +127,10 @@ impl NetworkEvent {
                             self.topic.clone(),
                             bendy::serde::to_bytes(&msg).unwrap()
                         );
-                    println!("Sent message that {:?} added", path)
+                    println!("Sent message that {:?} added", path);
                 } else {
                     println!("{:?} IS registered in hashmap, not sending message", path);
+                    // TODO remove from hashmap
                 }
             },
             _ => {println!("unhandled")}
@@ -262,7 +272,9 @@ impl NetworkEvent {
                 }
                 _ => {}
                 }
-            }
+            },
+            // TODO include request response behaviour
+            // SwarmEvent::Behaviour(OrgBehaviourEvent::RequestResponse)
             _ => {}
         }
     }
