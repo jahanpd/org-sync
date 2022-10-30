@@ -43,6 +43,7 @@ mod netevent;
 use netevent::NetworkEvent;
 mod netmessages;
 
+mod dht;
 mod db;
 
 #[async_std::main]
@@ -59,23 +60,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // get network objects
             let (mut watcher_sender,
                  mut cli_sender,
-                 mut command_sender,
                  mut netevent
             ): (mpsc::Sender<Command>,
                 mpsc::Sender<CliCommand>,
-                mpsc::Sender<Command>,
                 NetworkEvent
             ) = netbase::new().await?;
 
             // set up file watcher
             let mut watcher = WatcherSender{sender: watcher_sender};
-            spawn(watcher.watch(dirs));
+            spawn(watcher.watch(dirs.clone()));
 
             // Listen on all interfaces and whatever port the OS assigns
             netevent.swarm
                 .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
                 .unwrap();
 
+            netevent.startup_check(dirs);
             spawn(netevent.run());
             // Read full lines from stdin
             let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();

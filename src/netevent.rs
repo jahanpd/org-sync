@@ -1,7 +1,11 @@
 use crate::netbehaviour::{OrgBehaviour, OrgBehaviourEvent};
 use crate::netcommand::{Command, CliCommand};
-use crate::db::Database;
+use crate::db::{Database, DbRetrieve};
 use crate::netmessages as nm;
+use crate::types::{FilePath};
+use crate::dht;
+use walkdir::{WalkDir};
+use std::path::{PathBuf};
 use futures::channel::{mpsc};
 use futures::{prelude::*, select};
 use libp2p::{Swarm};
@@ -20,14 +24,21 @@ use std::error::Error;
 use libp2p::core::either::EitherError;
 use void;
 
+// This is a behemoth of a data structure
+// Important lifecycles to understand
+// 1. detect add/change/delete file (watch reciever) -> send message to peers -> update DHT
+// 2. get message of a/c/d -> note in hashmap watch_pending -> response request file
+//
 pub struct NetworkEvent {
     pub swarm: Swarm<OrgBehaviour>,
     pub watchreceiver: mpsc::Receiver<Command>,
     pub clireceiver: mpsc::Receiver<CliCommand>,
     pub commandreceiver: mpsc::Receiver<Command>,
+    pub commandsender: mpsc::Sender<Command>,
     pub db: Database,
     pub topic: Topic,
-    pub watch_pending: HashMap<String, String>
+    pub watch_pending: HashMap<String, String>,
+    pub db_pending: HashMap<String, DbRetrieve>
 }
 
 impl NetworkEvent {
@@ -36,9 +47,11 @@ impl NetworkEvent {
         watchreceiver: mpsc::Receiver<Command>,
         clireceiver: mpsc::Receiver<CliCommand>,
         commandreceiver: mpsc::Receiver<Command>,
+        commandsender: mpsc::Sender<Command>,
         db: Database,
         topic: Topic,
-        watch_pending: HashMap<String, String>
+        watch_pending: HashMap<String, String>,
+        db_pending: HashMap<String, DbRetrieve>
 
     ) -> Self {
         Self {
@@ -46,9 +59,11 @@ impl NetworkEvent {
             watchreceiver,
             clireceiver,
             commandreceiver,
+            commandsender,
             db,
             topic,
-            watch_pending
+            watch_pending,
+            db_pending
         }
     }
 
@@ -64,12 +79,48 @@ impl NetworkEvent {
                 cli = self.clireceiver.select_next_some() => {
                     self.handle_cli(cli).await;
                 }
+                command = self.commandreceiver.select_next_some() => {
+                    self.handle_command(command).await;
+                }
             }
         }
     }
 
-    pub fn startup_check(&mut self) {
+    pub fn startup_check(&mut self, dirs: Vec<PathBuf>) {
+        // Ensure base folders in config are available in home
         //TODO check local files with db and DHT, alert for hook potential
+        let files = self.get_files_from_dirs(dirs);
+        for file in files {
+            let hash = dht::path_to_hash(file.clone());
+            // TODO access local db and check it is added
+            // TODO access
+            //
+            dht::get_col_from_version(&mut self.swarm.behaviour_mut().kademlia, file.sub_home(), "current_version".into());
+            let temp_sender = |command: Command| {
+                self.commandsender.try_send(command);
+            };
+            self.db.get_col_from_version(&temp_sender, file.sub_home(), "current_version".into());
+            println!("{:?} -> {}", file, hash)
+        }
+    }
+
+    pub fn get_files_from_dirs(&mut self, dirs: Vec<PathBuf>) -> Vec<FilePath> {
+        let home = std::env::var("HOME").unwrap();
+        let mut paths: Vec<_> = vec![];
+        for path in dirs.into_iter() {
+            for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+                if !entry.path().is_dir() {
+                    paths.push(
+                        FilePath {
+                            home: home.clone(),
+                            full: entry.into_path().into_os_string().into_string().unwrap()
+                        }
+                    );
+                }
+                // println!("{}", entry.path().display());
+            }
+        };
+        paths
     }
 
     pub fn sync(&mut self) {
@@ -111,6 +162,8 @@ impl NetworkEvent {
                         peerid: self.swarm.local_peer_id().to_bytes()
                     };
                     // TODO update DHT
+                    // create key
+                    // Create value which is bendy {timestamp, }
                     let record = Record {
                         key: Key::new(&path.to_str().unwrap()), // key
                         value: b"test".to_vec(),

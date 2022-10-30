@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+use std::path::Path;
 
 // version struct
 #[derive(Serialize, Deserialize, Debug)]
@@ -13,7 +13,7 @@ pub struct Version {
 // TODO method to set boolean to False
 
 // for convenience struct for file and path manipulation
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FilePath {
     pub home: String,
     pub full: String
@@ -22,6 +22,13 @@ pub struct FilePath {
 impl FilePath {
     pub fn sub_home(&self) -> String {
         self.full.replace(&self.home, "")
+    }
+    pub fn to_path(&self) -> &Path {
+        Path::new(&self.full)
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.full.replace(&self.home, "")
+                 .as_bytes().to_vec()
     }
 }
 

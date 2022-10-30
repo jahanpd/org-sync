@@ -22,7 +22,6 @@ use crate::db;
 pub async fn new() -> Result<(
     mpsc::Sender<Command>,
     mpsc::Sender<CliCommand>,
-    mpsc::Sender<Command>,
     NetworkEvent), Box<dyn Error>> {
     // Create a random PeerId
     // TODO deterministic peerid but specific to machine
@@ -77,26 +76,27 @@ pub async fn new() -> Result<(
         libp2p::Swarm::new(transport, behaviour, local_peer_id)
     };
 
-    // set up database object
-    let database: db::Database = db::new();
-
     // for sending and recieving commands across async processes
     let (watcher_sender, watcher_receiver) = mpsc::channel(0);
     let (cli_sender, cli_receiver) = mpsc::channel(0);
     let (command_sender, command_receiver) = mpsc::channel(0);
 
+    // set up database object
+    let database: db::Database = db::new();
+
     Ok((
         watcher_sender,
         cli_sender,
-        command_sender,
         NetworkEvent::new(
             swarm,
             watcher_receiver,
             cli_receiver,
             command_receiver,
+            command_sender,
             database,
             topic,
-            HashMap::new()
+            HashMap::new(),
+            HashMap::new(),
         )
     )
     )
