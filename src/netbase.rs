@@ -30,6 +30,7 @@ pub async fn new() -> Result<(
     println!("Local peer id: {:?}", local_peer_id);
 
     // Set up an encrypted TCP Transport over the Mplex and Yamux protocols
+    // let transport = libp2p::development_transport(local_key.clone()).await?;
     let transport = libp2p::development_transport(local_key.clone()).await?;
 
     // Create a Gossipsub topic

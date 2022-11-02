@@ -7,6 +7,7 @@ pub enum Messages {
     Added { path: String, peerid: Vec<u8> },
     Changed { path: String, patch: String, peerid: Vec<u8> },
     Removed { path: String, peerid: Vec<u8> },
+    FileUpdate { path: String, current: String, previous: String, timestamp: i64, data: Vec<u8> },
 }
 
 // test

@@ -75,7 +75,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
                 .unwrap();
 
-            netevent.startup_check(dirs);
+            netevent.dirs = dirs;
+            netevent.startup_check();
             spawn(netevent.run());
             // Read full lines from stdin
             let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
