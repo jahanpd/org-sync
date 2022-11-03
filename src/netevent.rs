@@ -147,6 +147,9 @@ impl NetworkEvent {
         println!("requesting {:?} from {:?}", fp.sub_home() , peer)
     }
 
+    fn await_connection(&mut self){
+        while self.swarm.connected_peers().collect::<Vec<&PeerId>>().len() == 0 {}
+    }
     // KADEMLIA DHT request helpers
     /// GET
     fn get_record(
@@ -157,6 +160,7 @@ impl NetworkEvent {
         match results {
             Ok(libp2p::kad::GetRecordOk {records, ..}) => {
                 let recvec: Vec<PeerRecord> = records.clone().into_iter().collect();
+                println!("Records collected: {:?}", recvec.len());
                 let all_same: bool = recvec.windows(2).all(|w| w[0] == w[1]);
                 let max_record = recvec.iter().max_by_key(
                     |w| DhtEntry::from_bytes(w.record.value.clone()).unwrap().timestamp
@@ -448,6 +452,7 @@ impl NetworkEvent {
                     println!("Added peer: {:?}", peer_id)
                 }
                 // TODO perform version check and sync with each new peer
+                self.await_connection();
                 self.add_peer_check();
             },
             SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
