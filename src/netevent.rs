@@ -118,6 +118,7 @@ impl NetworkEvent {
         self.update_filepaths();
         let files = self.get_files_from_dirs(self.dirs.clone());
         // do get request for each file, will sync local and dht db
+        println!("Number of peers {:?}", self.swarm.connected_peers().collect::<Vec<&PeerId>>().len());
         for file in files {
             // send startup filecheck message
             if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
