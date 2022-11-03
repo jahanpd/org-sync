@@ -120,10 +120,12 @@ impl NetworkEvent {
         // do get request for each file, will sync local and dht db
         for file in files {
             // send startup filecheck message
-            self.swarm.behaviour_mut().gossipsub.publish(
+            if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
                 self.topic.clone(),
                 nm::to_bytes(nm::Messages::FileCheck { filepath: file.struct_to_bytes()})
-            );
+            ) {
+                println!("Publish error: {:?}", e);
+            };
             // this message runs GET on filepath in message
             self.swarm.behaviour_mut().kademlia.get_record(
                 Key::new(&file.to_bytes()), Quorum::One);
@@ -435,6 +437,7 @@ impl NetworkEvent {
                     println!("Added peer: {:?}", peer_id)
                 }
                 // TODO perform version check and sync with each new peer
+                self.startup_check();
             },
             SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
                 for (peer_id, multiaddr) in list {
