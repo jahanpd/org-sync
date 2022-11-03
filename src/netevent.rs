@@ -173,7 +173,6 @@ impl NetworkEvent {
                     let mut dht_time = dht_entry.timestamp;
                     let key = record.key.to_vec();
                     let local_retrieve = self.db.get(key.clone());
-                    let local_fp = self.key_2_filepath.get(&key).unwrap();
                     let local_fp = FilePath::new_from_key(key.to_vec());
                     let current_hash = match path_to_hash(local_fp.clone()) {
                         Some(hash) => hash,
