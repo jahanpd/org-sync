@@ -123,7 +123,10 @@ impl NetworkEvent {
             // send startup filecheck message
             if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
                 self.topic.clone(),
-                nm::to_bytes(nm::Messages::FileCheck { filepath: file.struct_to_bytes()})
+                nm::to_bytes(nm::Messages::FileCheck {
+                    filepath: file.struct_to_bytes(),
+                    timestamp: chrono::Utc::now().timestamp()
+                })
             ) {
                 println!("Publish error: {:?}", e);
             };
@@ -423,8 +426,11 @@ impl NetworkEvent {
                         // remove file
                         // watcher notes removed file and takes of transfer pending
                     },
-                    nm::Messages::FileCheck { filepath } => {
+                    nm::Messages::FileCheck { filepath, timestamp } => {
                         let fp = FilePath::struct_from_bytes(filepath).unwrap();
+                        let key = Key::new(&fp.to_bytes());
+                        self.swarm.behaviour_mut().kademlia.get_record(
+                            key, Quorum::One);
                         println!("FileCheck msg for {:?}", fp.sub_home())
                     }
                     _ => {}
