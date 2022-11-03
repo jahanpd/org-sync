@@ -124,6 +124,9 @@ impl NetworkEvent {
         // do get request for each file, will sync local and dht db
         println!("Number of peers {:?}", self.swarm.connected_peers().collect::<Vec<&PeerId>>().len());
         for file in files {
+            // this message runs GET on filepath in message
+            self.swarm.behaviour_mut().kademlia.get_record(
+                Key::new(&file.to_bytes()), Quorum::One);
             // send startup filecheck message
             if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
                 self.topic.clone(),
@@ -134,9 +137,6 @@ impl NetworkEvent {
             ) {
                 println!("Publish error: {:?}", e);
             };
-            // this message runs GET on filepath in message
-            self.swarm.behaviour_mut().kademlia.get_record(
-                Key::new(&file.to_bytes()), Quorum::One);
         }
         // Ensure base folders in config are available in home
     }
@@ -464,8 +464,8 @@ impl NetworkEvent {
             },
             SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
                 for (peer_id, multiaddr) in list {
-                    self.swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                    self.swarm.behaviour_mut().kademlia.remove_address(&peer_id, &multiaddr);
+                    // self.swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                    // self.swarm.behaviour_mut().kademlia.remove_address(&peer_id, &multiaddr);
                     println!("Removed peer: {:?}", peer_id)
                 }
             },
