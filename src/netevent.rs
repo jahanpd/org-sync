@@ -147,7 +147,7 @@ impl NetworkEvent {
         println!("requesting {:?} from {:?}", fp.sub_home() , peer)
     }
 
-    fn await_connection(&mut self){
+    async fn await_connection(&mut self){
         while self.swarm.connected_peers().collect::<Vec<&PeerId>>().len() == 0 {}
     }
     // KADEMLIA DHT request helpers
@@ -174,6 +174,7 @@ impl NetworkEvent {
                     let key = record.key.to_vec();
                     let local_retrieve = self.db.get(key.clone());
                     let local_fp = self.key_2_filepath.get(&key).unwrap();
+                    let local_fp = FilePath::new_from_key(key.to_vec());
                     let current_hash = match path_to_hash(local_fp.clone()) {
                         Some(hash) => hash,
                         None => {
@@ -371,6 +372,7 @@ impl NetworkEvent {
             // TODO write comand hooks
             CliCommand {Push: path} => {
                 println!("CLI command to push");
+                self.add_peer_check();
                 println!("{:?}", &path);
             },
             _ => {println!("unhandled")}
@@ -380,6 +382,11 @@ impl NetworkEvent {
     async fn handle_command(&mut self, command: Command) {
         match command {
             // TODO write comand hooks
+            Command::NewPeer => {
+                println!("Entered command newpeer");
+                self.await_connection();
+                self.add_peer_check();
+            },
             _ => {println!("unhandled")}
         }
     }
@@ -451,9 +458,9 @@ impl NetworkEvent {
                     self.swarm.behaviour_mut().kademlia.add_address(&peer_id, multiaddr);
                     println!("Added peer: {:?}", peer_id)
                 }
-                // TODO perform version check and sync with each new peer
-                self.await_connection();
-                self.add_peer_check();
+                self.commandsender.try_send(
+                    Command::NewPeer
+                ).expect("Command reciever not to be dropped");
             },
             SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
                 for (peer_id, multiaddr) in list {

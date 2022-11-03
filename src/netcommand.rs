@@ -47,6 +47,7 @@ pub enum Command {
     EditFileDelete {
         path: PathBuf
     },
+    NewPeer
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
