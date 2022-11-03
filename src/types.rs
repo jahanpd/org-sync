@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use bendy;
 
 // version struct
 #[derive(Serialize, Deserialize, Debug)]
@@ -13,7 +14,7 @@ pub struct Version {
 // TODO method to set boolean to False
 
 // for convenience struct for file and path manipulation
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FilePath {
     pub home: String,
     pub full: String
@@ -29,6 +30,12 @@ impl FilePath {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.full.replace(&self.home, "")
                  .as_bytes().to_vec()
+    }
+    pub fn struct_to_bytes(&self) -> Vec<u8> {
+        bendy::serde::to_bytes(&self).unwrap()
+    }
+    pub fn struct_from_bytes(bytes: Vec<u8>) -> Option<Self> {
+        bendy::serde::from_bytes::<FilePath>(&bytes).ok()
     }
 }
 

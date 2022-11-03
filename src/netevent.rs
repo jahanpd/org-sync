@@ -41,7 +41,7 @@ pub struct NetworkEvent {
     pub topic: Topic,
     pub transfer_pending: HashMap<String, String>,
     pub key_2_filepath: HashMap<Vec<u8>, FilePath>,
-    pub dirs: Vec<PathBuf>
+    pub dirs: Vec<PathBuf>,
 }
 
 impl NetworkEvent {
@@ -119,6 +119,12 @@ impl NetworkEvent {
         let files = self.get_files_from_dirs(self.dirs.clone());
         // do get request for each file, will sync local and dht db
         for file in files {
+            // send startup filecheck message
+            self.swarm.behaviour_mut().gossipsub.publish(
+                self.topic.clone(),
+                nm::to_bytes(nm::Messages::FileCheck { filepath: file.struct_to_bytes()})
+            );
+            // this message runs GET on filepath in message
             self.swarm.behaviour_mut().kademlia.get_record(
                 Key::new(&file.to_bytes()), Quorum::One);
         }
@@ -126,8 +132,9 @@ impl NetworkEvent {
     }
 
     /// FILE TRANSFER REQUEST RESPONSE
-    fn request_file(&mut self, peer: &PeerId, file: DhtEntry) {
-
+    fn request_file(&mut self, peer: &PeerId, key:&Vec<u8>, entry: DhtEntry) {
+        let fp = self.key_2_filepath.get(key).unwrap();
+        println!("requesting {:?} from {:?}", fp.sub_home() , peer)
     }
 
     // KADEMLIA DHT request helpers
@@ -208,7 +215,7 @@ impl NetworkEvent {
                                 if dht_time > local_time {
                                     // trigger file transfer
                                     // update entry in local is handled on response success
-                                    self.request_file(&peer.unwrap(), dht_entry.clone());
+                                    self.request_file(&peer.unwrap(), &key, dht_entry.clone());
                                     println!("Reqeusting file as hashes different and DHT more recent");
 
                                 } else if local_time > dht_time {
@@ -233,7 +240,7 @@ impl NetworkEvent {
                                     panic!("Differing hashes (dht vs local) but same timestamp")
                                 }
                                 if &current_hash == "no_file" {
-                                    self.request_file(&peer.unwrap(), dht_entry.clone());
+                                    self.request_file(&peer.unwrap(), &key, dht_entry.clone());
                                     println!("Requesting file as no local file but dht and local db entries");
                                 }
                             }
@@ -413,6 +420,10 @@ impl NetworkEvent {
                         // remove file
                         // watcher notes removed file and takes of transfer pending
                     },
+                    nm::Messages::FileCheck { filepath } => {
+                        let fp = FilePath::struct_from_bytes(filepath).unwrap();
+                        println!("FileCheck msg for {:?}", fp.sub_home())
+                    }
                     _ => {}
                 }
             },
