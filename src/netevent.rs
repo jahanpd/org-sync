@@ -115,6 +115,10 @@ impl NetworkEvent {
     }
 
     pub fn startup_check(&mut self) {
+
+    }
+
+    pub fn add_peer_check(&mut self) {
         self.update_filepaths();
         let files = self.get_files_from_dirs(self.dirs.clone());
         // do get request for each file, will sync local and dht db
@@ -273,7 +277,7 @@ impl NetworkEvent {
             Err(libp2p::kad::GetRecordError::NotFound {key, closest_peers}) => {
                 println!("failed due to not found");
                 // check local file present
-                let local_fp = self.key_2_filepath.get(&key.to_vec()).unwrap();
+                let local_fp = FilePath::new_from_key(key.to_vec());
                 match path_to_hash(local_fp.clone()) {
                     Some(current_hash) => {
                         match self.db.get(key.to_vec().clone()) {
@@ -444,7 +448,7 @@ impl NetworkEvent {
                     println!("Added peer: {:?}", peer_id)
                 }
                 // TODO perform version check and sync with each new peer
-                self.startup_check();
+                self.add_peer_check();
             },
             SwarmEvent::Behaviour(OrgBehaviourEvent::Mdns(MdnsEvent::Expired(list))) => {
                 for (peer_id, multiaddr) in list {

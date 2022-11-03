@@ -37,6 +37,15 @@ impl FilePath {
     pub fn struct_from_bytes(bytes: Vec<u8>) -> Option<Self> {
         bendy::serde::from_bytes::<FilePath>(&bytes).ok()
     }
+    pub fn new_from_key(key: Vec<u8>) -> Self {
+        let home = std::env::var("HOME").unwrap();
+        let mut tilde = "~".to_string();
+        tilde.push_str(&String::from_utf8(key).unwrap());
+        Self {
+            home: home.clone(),
+            full: tilde.replace("~", &home)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
