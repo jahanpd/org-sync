@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 walkdir = "2"
 uid = "0.1.7"
-libp2p = "0.43.0"
+libp2p = { version = "0.49.0", features = ["full"] }
+# libp2p = "0.43.0"
 futures = "0.3.21"
 async-std = { version = "1.10.0", features = ["attributes"] }
 log = "0.4.0"

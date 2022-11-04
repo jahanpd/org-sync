@@ -147,9 +147,6 @@ impl NetworkEvent {
         println!("requesting {:?} from {:?}", fp.sub_home() , peer)
     }
 
-    async fn await_connection(&mut self){
-        while self.swarm.connected_peers().collect::<Vec<&PeerId>>().len() == 0 {}
-    }
     // KADEMLIA DHT request helpers
     /// GET
     fn get_record(
@@ -383,7 +380,6 @@ impl NetworkEvent {
             // TODO write comand hooks
             Command::NewPeer => {
                 println!("Entered command newpeer");
-                self.await_connection();
                 self.add_peer_check();
             },
             _ => {println!("unhandled")}
@@ -392,7 +388,7 @@ impl NetworkEvent {
 
     async fn handle_swarm(&mut self, event: SwarmEvent<
             OrgBehaviourEvent,
-            EitherError<EitherError<GossipsubHandlerError, std::io::Error>, void::Void>
+            EitherError<EitherError<EitherError<GossipsubHandlerError, std::io::Error>, void::Void>, libp2p::ping::Failure>
             >) {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {

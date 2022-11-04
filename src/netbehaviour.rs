@@ -15,12 +15,14 @@ pub struct OrgBehaviour {
     pub gossipsub: gossipsub::Gossipsub,
     pub kademlia: Kademlia<MemoryStore>,
     pub mdns: Mdns,
+    pub ping: libp2p::ping::Behaviour
 }
 
 pub enum OrgBehaviourEvent {
     Gossipsub(GossipsubEvent),
     Kademlia(KademliaEvent),
     Mdns(MdnsEvent),
+    Ping(libp2p::ping::Event)
 }
 
 impl From<KademliaEvent> for OrgBehaviourEvent {
@@ -37,5 +39,11 @@ impl From<GossipsubEvent> for OrgBehaviourEvent {
 impl From<MdnsEvent> for OrgBehaviourEvent {
     fn from(event: MdnsEvent) -> Self {
         OrgBehaviourEvent::Mdns(event)
+    }
+}
+
+impl From<libp2p::ping::Event> for OrgBehaviourEvent {
+    fn from(event: libp2p::ping::Event) -> Self {
+        OrgBehaviourEvent::Ping(event)
     }
 }
