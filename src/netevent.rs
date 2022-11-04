@@ -394,6 +394,7 @@ impl NetworkEvent {
             SwarmEvent::NewListenAddr { address, .. } => {
                 println!("Listening on {:?}", address);
             },
+            SwarmEvent::Behaviour(OrgBehaviourEvent::Ping(ping)) => println!("{:?}", ping),
             SwarmEvent::Behaviour(OrgBehaviourEvent::Gossipsub(GossipsubEvent::Message {
                 propagation_source: peer_id,
                 message_id: id,

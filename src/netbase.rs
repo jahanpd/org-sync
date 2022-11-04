@@ -72,7 +72,7 @@ pub async fn new() -> Result<(
         let mdns = Mdns::new(MdnsConfig::default()).unwrap();
         let store = MemoryStore::new(local_peer_id);
         let kademlia = Kademlia::new(local_peer_id, store);
-        let ping = libp2p::ping::Behaviour::new(libp2p::ping::Config::new());
+        let ping = libp2p::ping::Behaviour::new(libp2p::ping::Config::new().with_keep_alive(true));
         let behaviour = OrgBehaviour { gossipsub, kademlia, mdns, ping };
         // build the swarm
         libp2p::Swarm::new(transport, behaviour, local_peer_id)
