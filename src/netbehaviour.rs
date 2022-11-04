@@ -7,6 +7,11 @@ use libp2p::kad::{
 };
 use libp2p::mdns::{Mdns, MdnsEvent};
 use libp2p::{gossipsub, NetworkBehaviour};
+use crate::netexchange::*;
+use libp2p::request_response::{
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
+    RequestResponseMessage, ResponseChannel,
+};
 
 // Logic for network behaviour
 #[derive(NetworkBehaviour)]
@@ -15,14 +20,17 @@ pub struct OrgBehaviour {
     pub gossipsub: gossipsub::Gossipsub,
     pub kademlia: Kademlia<MemoryStore>,
     pub mdns: Mdns,
-    pub ping: libp2p::ping::Behaviour
+    pub ping: libp2p::ping::Behaviour,
+    pub request_response: RequestResponse<FileExchangeCodec>,
 }
 
 pub enum OrgBehaviourEvent {
     Gossipsub(GossipsubEvent),
     Kademlia(KademliaEvent),
     Mdns(MdnsEvent),
-    Ping(libp2p::ping::Event)
+    Ping(libp2p::ping::Event),
+    RequestResponse(RequestResponseEvent<FileRequest, FileResponse>)
+
 }
 
 impl From<KademliaEvent> for OrgBehaviourEvent {
@@ -45,5 +53,11 @@ impl From<MdnsEvent> for OrgBehaviourEvent {
 impl From<libp2p::ping::Event> for OrgBehaviourEvent {
     fn from(event: libp2p::ping::Event) -> Self {
         OrgBehaviourEvent::Ping(event)
+    }
+}
+
+impl From<RequestResponseEvent<FileRequest, FileResponse>> for OrgBehaviourEvent {
+    fn from(event: RequestResponseEvent<FileRequest, FileResponse>) -> Self {
+        OrgBehaviourEvent::RequestResponse(event)
     }
 }

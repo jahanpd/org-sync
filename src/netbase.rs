@@ -12,11 +12,16 @@ use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use libp2p::request_response::{
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
+    RequestResponseMessage, ResponseChannel,
+};
 
 use crate::netbehaviour::*;
 use crate::netcommand::*;
 use crate::netevent::NetworkEvent;
 use crate::db;
+use crate::netexchange::*;
 
 /// Function for creating new network components
 pub async fn new() -> Result<(
@@ -73,7 +78,12 @@ pub async fn new() -> Result<(
         let store = MemoryStore::new(local_peer_id);
         let kademlia = Kademlia::new(local_peer_id, store);
         let ping = libp2p::ping::Behaviour::new(libp2p::ping::Config::new().with_keep_alive(true));
-        let behaviour = OrgBehaviour { gossipsub, kademlia, mdns, ping };
+        let request_response = libp2p::request_response::RequestResponse::new(
+            FileExchangeCodec(),
+            std::iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),
+            Default::default(),
+        );
+        let behaviour = OrgBehaviour { gossipsub, kademlia, mdns, ping, request_response};
         // build the swarm
         libp2p::Swarm::new(transport, behaviour, local_peer_id)
     };

@@ -3,19 +3,21 @@ use super::*;
 use async_trait::async_trait;
 use libp2p::core::upgrade::{read_length_prefixed, write_length_prefixed};
 use libp2p::request_response::{
-    RequestResponseCodec,
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseCodec, RequestResponseEvent,
+    RequestResponseMessage, ResponseChannel,
 };
+
 use crate::dht::*;
 use serde::{Deserialize, Serialize};
 use bendy;
 use bendy::encoding::{ToBencode, Error};
 
 #[derive(Debug, Clone)]
-struct FileExchangeProtocol();
+pub struct FileExchangeProtocol();
 #[derive(Clone)]
-struct FileExchangeCodec();
+pub struct FileExchangeCodec();
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct FileRequest(Vec<u8>);
+pub struct FileRequest(Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileResponse(Vec<u8>);
 
@@ -26,7 +28,7 @@ impl ProtocolName for FileExchangeProtocol {
 }
 
 #[async_trait]
-    impl RequestResponseCodec for FileExchangeCodec {
+impl RequestResponseCodec for FileExchangeCodec {
     type Protocol = FileExchangeProtocol;
     type Request = FileRequest;
     type Response = FileResponse;

@@ -144,7 +144,8 @@ impl NetworkEvent {
     /// FILE TRANSFER REQUEST RESPONSE
     fn request_file(&mut self, peer: &PeerId, key:&Vec<u8>, entry: DhtEntry) {
         let fp = self.key_2_filepath.get(key).unwrap();
-        println!("requesting {:?} from {:?}", fp.sub_home() , peer)
+        println!("requesting {:?} from {:?}", fp.sub_home() , peer);
+        // self.swarm.behaviour_mut().
     }
 
     // KADEMLIA DHT request helpers
@@ -295,7 +296,16 @@ impl NetworkEvent {
                                     &mut self.swarm.behaviour_mut().kademlia,
                                     local_fp.sub_home(),
                                     new_entry);
-                                println!("Added to dht and local from local entry but no dht entry")
+                                println!("Added to dht and local from local entry but no dht entry");
+                                if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
+                                    self.topic.clone(),
+                                    nm::to_bytes(nm::Messages::FileCheck {
+                                        filepath: local_fp.struct_to_bytes(),
+                                        timestamp: chrono::Utc::now().timestamp()
+                                    })
+                                ) {
+                                    println!("Publish error: {:?}", e);
+                                };
                             },
                             None => {
                                 // no local db entry and file on disk
@@ -310,7 +320,16 @@ impl NetworkEvent {
                                     &mut self.swarm.behaviour_mut().kademlia,
                                     local_fp.sub_home(),
                                     new_entry);
-                                println!("Added to dht and local from no entry in dht or local")
+                                println!("Added to dht and local from no entry in dht or local");
+                                if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
+                                    self.topic.clone(),
+                                    nm::to_bytes(nm::Messages::FileCheck {
+                                        filepath: local_fp.struct_to_bytes(),
+                                        timestamp: chrono::Utc::now().timestamp()
+                                    })
+                                ) {
+                                    println!("Publish error: {:?}", e);
+                                };
                             }
                         }
                     },
@@ -388,7 +407,14 @@ impl NetworkEvent {
 
     async fn handle_swarm(&mut self, event: SwarmEvent<
             OrgBehaviourEvent,
-            EitherError<EitherError<EitherError<GossipsubHandlerError, std::io::Error>, void::Void>, libp2p::ping::Failure>
+            EitherError<
+            EitherError<
+            EitherError<
+            EitherError<
+                    GossipsubHandlerError, std::io::Error>,
+                    void::Void>,
+                    libp2p::ping::Failure>,
+                    libp2p::swarm::handler::ConnectionHandlerUpgrErr<std::io::Error>>
             >) {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
