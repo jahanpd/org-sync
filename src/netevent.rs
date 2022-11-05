@@ -150,10 +150,10 @@ impl NetworkEvent {
         // self.swarm.behaviour_mut().
     }
 
-    fn handle_message_request() {
+    fn handle_message_request( request ) {
 
     }
-    fn handle_message_response() {
+    fn handle_message_response( response ) {
 
     }
 
