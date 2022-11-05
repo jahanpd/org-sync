@@ -4,19 +4,14 @@ use async_std::task::spawn;
 use clap::Parser;
 use env_logger::{Builder, Env};
 use futures::{prelude::*, select};
-use libp2p::gossipsub::{GossipsubEvent};
-use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::{
-    record::Key, AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryResult,
-    Quorum, Record,
+    record::Key, Record,
 };
 use futures::channel::{mpsc};
-use libp2p::mdns::{MdnsEvent};
-use libp2p::{swarm::{SwarmEvent}};
 use std::error::Error;
 use std::{
     net::{TcpListener, TcpStream},
-    io::{prelude::*, BufReader},
+    io::{BufReader},
 };
 
 use bendy;

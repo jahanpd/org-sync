@@ -150,10 +150,10 @@ impl NetworkEvent {
         // self.swarm.behaviour_mut().
     }
 
-    fn handle_message_request( request ) {
+    fn handle_message_request(&mut self, request: FileRequest ) {
 
     }
-    fn handle_message_response( response ) {
+    fn handle_message_response(&mut self, response: FileResponse ) {
 
     }
 
@@ -161,10 +161,10 @@ impl NetworkEvent {
         match event {
             RequestResponseEvent::Message {peer, message} => {
                 match message {
-                    RequestResponseMessage::Request { request } => {
+                    RequestResponseMessage::Request { request, .. } => {
                         self.handle_message_request(request);
                     }
-                    RequestResponseMessage::Response { response } => {
+                    RequestResponseMessage::Response { response, .. } => {
                         self.handle_message_response( response );
                     }
                 }
