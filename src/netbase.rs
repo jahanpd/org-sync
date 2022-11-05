@@ -77,7 +77,10 @@ pub async fn new() -> Result<(
         let mdns = Mdns::new(MdnsConfig::default()).unwrap();
         let store = MemoryStore::new(local_peer_id);
         let kademlia = Kademlia::new(local_peer_id, store);
-        let ping = libp2p::ping::Behaviour::new(libp2p::ping::Config::new().with_keep_alive(true));
+        let ping = libp2p::ping::Behaviour::new(
+            libp2p::ping::Config::new().with_keep_alive(true)
+                .with_interval(Duration::from_secs(60))
+        );
         let request_response = libp2p::request_response::RequestResponse::new(
             FileExchangeCodec(),
             std::iter::once((FileExchangeProtocol(), ProtocolSupport::Full)),

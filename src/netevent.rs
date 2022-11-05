@@ -4,6 +4,7 @@ use crate::db::*;
 use crate::netmessages as nm;
 use crate::types::{FilePath};
 use crate::dht::*;
+use crate::netexchange::*;
 use walkdir::{WalkDir};
 use std::path::{PathBuf};
 use chrono::prelude::*;
@@ -19,6 +20,7 @@ use libp2p::kad::{
     record::Key, AddProviderOk, Kademlia, KademliaEvent, PeerRecord, PutRecordOk, QueryResult,
     Quorum, Record,
 };
+use libp2p::request_response::{RequestResponseEvent, RequestResponseMessage};
 use std::collections::HashMap;
 use async_std::io;
 use std::error::Error;
@@ -146,6 +148,37 @@ impl NetworkEvent {
         let fp = self.key_2_filepath.get(key).unwrap();
         println!("requesting {:?} from {:?}", fp.sub_home() , peer);
         // self.swarm.behaviour_mut().
+    }
+
+    fn handle_message_request() {
+
+    }
+    fn handle_message_response() {
+
+    }
+
+    fn handle_request_response(&mut self, event: RequestResponseEvent<FileRequest, FileResponse>) {
+        match event {
+            RequestResponseEvent::Message {peer, message} => {
+                match message {
+                    RequestResponseMessage::Request { request } => {
+                        self.handle_message_request(request);
+                    }
+                    RequestResponseMessage::Response { response } => {
+                        self.handle_message_response( response );
+                    }
+                }
+            },
+            RequestResponseEvent::OutboundFailure {error, ..} => {
+                println!("{:?}", error);
+            },
+            RequestResponseEvent::InboundFailure {error, ..} => {
+                println!("{:?}", error);
+            },
+            RequestResponseEvent::ResponseSent {request_id, ..} => {
+                println!("{:?}", request_id);
+            }
+        }
     }
 
     // KADEMLIA DHT request helpers
@@ -530,6 +563,9 @@ impl NetworkEvent {
             },
             // TODO include request response behaviour
             // SwarmEvent::Behaviour(OrgBehaviourEvent::RequestResponse)
+            SwarmEvent::Behaviour(OrgBehaviourEvent::RequestResponse(event)) => {
+                self.handle_request_response(event);
+            }
             _ => {}
         }
     }
